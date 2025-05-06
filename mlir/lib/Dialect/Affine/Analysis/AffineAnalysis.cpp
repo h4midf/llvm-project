@@ -491,7 +491,8 @@ LogicalResult MemRefAccess::getAccessRelation(IntegerRelation &rel) const {
 
   // Append domain constraints to `rel`.
   IntegerRelation domainRel = domain;
-  if (rel.getSpace().isUsingIds() && !domainRel.getSpace().isUsingIds())
+  // For 0-d spaces, there will be no IDs. Enable if that's the case.
+  if (!domainRel.getSpace().isUsingIds())
     domainRel.resetIds();
 
   if (!rel.getSpace().isUsingIds()) {
@@ -670,6 +671,11 @@ DependenceResult mlir::affine::checkMemrefAccessDependence(
   // `srcAccess` to the iteration domain of `dstAccess` which access the same
   // memory locations.
   dstRel.inverse();
+  // For 0-d spaces, there will be no IDs. Enable if that's the case.
+  if (!dstRel.getSpace().isUsingIds())
+    dstRel.resetIds();
+  if (!srcRel.getSpace().isUsingIds())
+    srcRel.resetIds();
   dstRel.mergeAndCompose(srcRel);
   dstRel.convertVarKind(VarKind::Domain, 0, dstRel.getNumDomainVars(),
                         VarKind::Range, 0);
