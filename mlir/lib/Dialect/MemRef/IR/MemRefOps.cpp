@@ -1658,22 +1658,24 @@ OpFoldResult LoadOp::fold(FoldAdaptor adaptor) {
         SymbolTable::lookupNearestSymbolFrom(getCst, getCst.getNameAttr()));
     if (global && global.getConstant() && global.getInitialValue()) {
       auto constIndices = adaptor.getIndices();
-      if (llvm::all_of(constIndices, [](auto attr) {
-            return mlir::isa<IntegerAttr>(attr);
+      // Guard against null attributes and require all indices be IntegerAttr.
+      if (!constIndices.empty() &&
+          llvm::all_of(constIndices, [](Attribute attr) {
+            return static_cast<bool>(attr) && mlir::isa<IntegerAttr>(attr);
           })) {
         SmallVector<uint64_t> index;
-        for (auto attr : constIndices) {
+        index.reserve(constIndices.size());
+        for (Attribute attr : constIndices)
           index.push_back(cast<IntegerAttr>(attr).getUInt());
-        }
         // all indices are constant, value is constant
         if (auto constValue =
                 mlir::dyn_cast<ElementsAttr>(*global.getInitialValue())) {
           if (constValue.isValidIndex(index)) {
             auto flatIdx = constValue.getFlattenedIndex(index);
             auto values = constValue.getValues<Attribute>();
-            auto iter = values.begin();
-            if (std::next(iter, flatIdx) < values.end()) {
-              return OpFoldResult(*iter);
+            if (flatIdx < values.size()) {
+              // Select the correct element at flatIdx.
+              return values[flatIdx];
             }
           }
         }
